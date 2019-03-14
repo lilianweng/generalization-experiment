@@ -86,5 +86,5 @@ class NewRiskCurveExperiment:
 
 
 if __name__ == '__main__':
-    exp = NewRiskCurveExperiment(10)
+    exp = NewRiskCurveExperiment(num_epoches=1)
     exp.run()

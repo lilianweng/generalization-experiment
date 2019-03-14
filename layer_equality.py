@@ -11,6 +11,7 @@ configure_logging()
 class LayerEqualityExperiment:
 
     def __init__(self, layer_sizes):
+        self.output_filename = "data/layer_equality_results.json"
         self.sess = make_session()
 
         dataset, (_, _), (self.x_test, self.y_test) = prepare_mnist_dataset()
@@ -29,7 +30,8 @@ class LayerEqualityExperiment:
         np.random.seed(int(time.time()))
 
     def _initialize(self, lr):
-        train_op = tf.train.MomentumOptimizer(lr, momentum=0.9).minimize(self.loss_ph)
+        # train_op = tf.train.MomentumOptimizer(lr, momentum=0.9).minimize(self.loss_ph)
+        train_op = tf.train.AdamOptimizer(lr).minimize(self.loss_ph)
 
         self.sess.run(self.iterator.initializer)
         self.sess.run(tf.global_variables_initializer())
@@ -112,17 +114,18 @@ class LayerEqualityExperiment:
                 except tf.errors.OutOfRangeError:
                     eval_accuracy = self._get_eval_accuracy()
                     logging.info(
-                        f">>> epoch:{epoch} step:{step} train_loss:{train_loss} eval_accuracy:{eval_accuracy} lr:{lr}")
+                        f">>> epoch:{epoch} step:{step} train_loss:{train_loss:.4f} eval_accuracy:{eval_accuracy:.4f} lr:{lr}")
                     self.sess.run(self.iterator.initializer)
                     break
 
-            lr *= 0.8
-            # results += self.measure_layer_robustness(eval_accuracy, epoch)
-            ## save to disk in every loop
-            # with open('layer_equality_results.json', 'w') as fout:
-            #    json.dump(results, fout)
+            if epoch > 0 and epoch % 10 == 0:
+                lr *= 0.5
+                results += self.measure_layer_robustness(eval_accuracy, epoch)
+                # save to disk in every loop
+                with open(self.output_filename, 'w') as fout:
+                    json.dump(results, fout)
 
 
 if __name__ == '__main__':
     exp = LayerEqualityExperiment([256, 256])
-    exp.train(100, 0.01)
+    exp.train(100, 0.002)

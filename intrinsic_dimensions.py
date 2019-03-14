@@ -32,6 +32,7 @@ class IntrinsicDimensionExperiment:
 
         self._transform_matrix_ph = tf.placeholder(tf.float64, shape=(self.D, self.d))
         self._dimension_indices_ph = tf.placeholder(tf.int32, shape=(self.d,))
+        self._dimension_mask_ph = tf.placeholder(tf.int32, shape=(self.D,))
 
     def _initialize(self):
         self.sess.run(self.iterator.initializer)
@@ -42,9 +43,13 @@ class IntrinsicDimensionExperiment:
         return self.sess.run([self.loss_ph, self.accuracy_ph], feed_dict=feed_dict)
 
     def sample_transform_matrix(self):
-        """Matrix P in the paper of size (seld.D, d
+        """Matrix P in the paper of size (D, d)
+        Columns of P are normalized to unit length.
         """
-        return np.random.random((self.D, self.d))
+        matrix = np.random.random((self.D, self.d))
+        for i in range(self.d):
+            matrix[:, i] /= np.sum(matrix[:, i])
+        return matrix
 
     def sample_selected_dimensions(self):
         indices = np.random.choice(range(self.D), size=self.d, replace=False)
@@ -55,6 +60,9 @@ class IntrinsicDimensionExperiment:
         return self.sess.run(tf_flat_vars(tf.trainable_variables()))
 
     def gradient_update(self, lr):
+        """
+        TODO: Change it.
+        """
         var_list = tf.trainable_variables()
 
         optimizer = tf.train.AdamOptimizer(lr)
@@ -103,11 +111,12 @@ class IntrinsicDimensionExperiment:
         for epoch in range(n_epoches):
             while True:
                 try:
-                    self.sess.run(train_op, feed_dict=feed_dict)
+                    _, loss = self.sess.run([train_op, self.loss_ph], feed_dict=feed_dict)
+                    logging.info(f"[step:{step}] loss={loss}")
                     step += 1
                     if step % 100 == 0:
                         eval_loss, eval_acc = self._get_eval_results(feed_dict)
-                        logging.info(f"epoch:{epoch} step:{step} eval_loss:{eval_loss} "
+                        logging.info(f"[epoch:{epoch}|step:{step}] eval_loss:{eval_loss} "
                                      f"eval_acc:{eval_acc}")
                 except tf.errors.OutOfRangeError:
                     self.sess.run(self.iterator.initializer)
@@ -119,6 +128,6 @@ class IntrinsicDimensionExperiment:
 
 
 if __name__ == '__main__':
-    d = 5000
-    exp = IntrinsicDimensionExperiment(d, [512])
-    exp.train()
+    d = 50
+    exp = IntrinsicDimensionExperiment(d, [1024])
+    exp.train(lr=0.01)
