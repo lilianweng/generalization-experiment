@@ -101,7 +101,6 @@ class LayerEqualityExperiment:
 
     def train(self, n_epoches, lr):
         train_op = self._initialize(lr)
-        print(">>>", tf.global_variables())
 
         results = []
         step = 0
