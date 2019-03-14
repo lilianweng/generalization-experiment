@@ -129,3 +129,6 @@ class LayerEqualityExperiment:
 if __name__ == '__main__':
     exp = LayerEqualityExperiment([256, 256])
     exp.train(100, 0.002)
+
+    # exp = LayerEqualityExperiment([256, 256, 256])
+    # exp.train(100, ???)
