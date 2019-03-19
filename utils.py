@@ -30,7 +30,7 @@ def tf_flat_vars(var_list):
 
 
 def dense_nn(inputs, layers_sizes, name="fc", reuse=False, output_fn=None,
-             dropout_keep_prob=None, batch_norm=False, training=True):
+             dropout_keep_prob=None, training=True):
     logging.info(f"Building mlp {name} | sizes: {[inputs.shape[0]] + layers_sizes}")
     with tf.variable_scope(name, reuse=reuse):
         out = inputs
@@ -50,9 +50,6 @@ def dense_nn(inputs, layers_sizes, name="fc", reuse=False, output_fn=None,
                 # Add relu activation only for internal layers.
                 activation=tf.nn.relu if i < len(layers_sizes) - 1 else None,
             )
-
-            if batch_norm:
-                out = tf.layers.batch_normalization(out, training=training)
 
         if output_fn:
             out = output_fn(out)
@@ -84,6 +81,8 @@ def make_session(num_cpus=None, use_gpu=True):
         if num_gpus > 0:
             visible_device_list = ','.join(list(map(str, range(num_gpus))))
             gpu_options = tf.GPUOptions(visible_device_list=visible_device_list)
+            gpu_options.allow_growth = True
+            gpu_options.per_process_gpu_memory_fraction = 0.95
 
     sess_config = dict(
         gpu_options=gpu_options,
@@ -96,31 +95,49 @@ def make_session(num_cpus=None, use_gpu=True):
     return tf.Session(config=tf_config)
 
 
-def prepare_mnist_dataset():
+def sample_dataset(x, y, n_samples):
+    indices = np.random.choice(range(x.shape[0]), size=n_samples, replace=False)
+    x = x[indices]
+    y = y[indices]
+    return x, y
+
+
+def prepare_mnist_dataset(batch_size=64, ratio=1.0):
     mnist = tf.keras.datasets.mnist
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    if ratio < 1.0:
+        x_train, y_train = sample_dataset(x_train, y_train, int(x_train.shape[0] * ratio))
+        x_test, y_test = sample_dataset(x_test, y_test, int(x_test.shape[0] * ratio))
+
     x_train, x_test = x_train / 255.0, x_test / 255.0
+    logging.info(f"x_train.shape={x_train.shape} y_train={y_train.shape} "
+                 f"x_test.shape={x_test.shape} y_test={y_test.shape}")
 
     shuffle_buffer = 1000
     prefetch_buffer = 1000
-    batch_size = 128
     dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
     dataset = dataset.shuffle(shuffle_buffer).prefetch(prefetch_buffer).batch(batch_size)
     return dataset, (x_train, y_train), (x_test, y_test)
 
 
-def create_mnist_model(input_ph, label_ph, layer_sizes=[64], name='mnist_dense_nn'):
+def create_mnist_model(input_ph, label_ph, layer_sizes=[64], dropout_keep_prob=0.9,
+                       name='mnist_dense_nn', loss_type='cross_ent'):
     assert list(input_ph.shape)[1:] == [28, 28]
+    assert loss_type in ('cross_ent', 'mse')
 
     with tf.variable_scope(name, reuse=False):
         label_ohe = tf.one_hot(label_ph, 10, dtype=tf.float64)
 
         x = tf.reshape(input_ph, (-1, 28 * 28))
         # Toy model: 28x28 --> multiple fc layers --> ReLU --> fc 10 --> output logits
-        logits = dense_nn(x, layer_sizes + [10], name="mlp", reuse=False, dropout_keep_prob=0.1)
+        logits = dense_nn(x, layer_sizes + [10], name="mlp", reuse=False,
+                          dropout_keep_prob=dropout_keep_prob)
         preds = tf.nn.softmax(logits)
 
-        loss = tf.losses.softmax_cross_entropy(label_ohe, logits)
+        if loss_type == 'x_ent':
+            loss = tf.losses.softmax_cross_entropy(label_ohe, logits)
+        else:
+            loss = tf.reduce_mean(tf.square(preds - label_ohe))
         accuracy = tf.reduce_sum(label_ohe * preds) / tf.cast(tf.shape(label_ohe)[0], tf.float64)
 
     return loss, accuracy
