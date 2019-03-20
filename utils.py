@@ -126,18 +126,22 @@ def create_mnist_model(input_ph, label_ph, layer_sizes=[64], dropout_keep_prob=0
     assert loss_type in ('cross_ent', 'mse')
 
     with tf.variable_scope(name, reuse=False):
-        label_ohe = tf.one_hot(label_ph, 10, dtype=tf.float64)
+        label_ohe = tf.one_hot(label_ph, 10, dtype=tf.float32)
 
         x = tf.reshape(input_ph, (-1, 28 * 28))
         # Toy model: 28x28 --> multiple fc layers --> ReLU --> fc 10 --> output logits
         logits = dense_nn(x, layer_sizes + [10], name="mlp", reuse=False,
                           dropout_keep_prob=dropout_keep_prob)
         preds = tf.nn.softmax(logits)
+        pred_labels = tf.cast(tf.argmax(preds, 1), tf.uint8)
 
         if loss_type == 'x_ent':
             loss = tf.losses.softmax_cross_entropy(label_ohe, logits)
         else:
             loss = tf.reduce_mean(tf.square(preds - label_ohe))
-        accuracy = tf.reduce_sum(label_ohe * preds) / tf.cast(tf.shape(label_ohe)[0], tf.float64)
+
+        accuracy = tf.reduce_sum(
+            tf.cast(tf.equal(pred_labels, label_ph), tf.float32)
+        ) / tf.cast(tf.shape(label_ph)[0], tf.float32)
 
     return loss, accuracy

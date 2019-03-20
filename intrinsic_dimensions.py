@@ -11,8 +11,9 @@ configure_logging()
 
 class IntrinsicDimensionExperiment:
 
-    def __init__(self, d, layer_sizes):
+    def __init__(self, d, layer_sizes, clip_norm=None):
         self.sess = make_session()
+        self.clip_norm = clip_norm
 
         dataset, (_, _), (self.x_test, self.y_test) = prepare_mnist_dataset()
         self.iterator = dataset.make_initializable_iterator()
@@ -32,11 +33,14 @@ class IntrinsicDimensionExperiment:
 
         self.loss, self.accuracy = self.build_network(self.batch_input, self.batch_label)
 
+        for t in tf.trainable_variables():
+            print(t)
+
         np.random.seed(int(time.time()))
 
     def build_network(self, input_ph, label_ph):
         self.transforms = self.sample_transform_matrices()
-        self.subspace = tf.get_variable("subspace", shape=(self.d,1),
+        self.subspace = tf.get_variable("subspace", shape=(self.d, 1), trainable=True,
                                         initializer=tf.zeros_initializer())
 
         with tf.variable_scope("mnist_dense_nn", reuse=False):
@@ -45,24 +49,36 @@ class IntrinsicDimensionExperiment:
             out = tf.reshape(tf.cast(input_ph, tf.float32), (-1, 28 * 28))
 
             for i, (h, w) in enumerate(self.shape_per_layer):
-                weights = tf.get_variable(f'w{i}', shape=(h, w))
-                weights = weights + tf.reshape(tf.matmul(
-                    self.transforms[i][0], self.subspace), weights.shape)
 
-                biases = tf.get_variable(f'b{i}', shape=(w,), initializer=tf.zeros_initializer())
-                biases = biases + tf.reshape(tf.matmul(
-                    self.transforms[i][1], self.subspace), biases.shape)
+                if i > 0:
+                    # No dropout on the input layer.
+                    out = tf.nn.dropout(out, keep_prob=0.9)
 
-                out = tf.matmul(out, weights) + biases
+                weights = tf.get_variable(f'w_{i}', shape=(h, w), trainable=False,
+                                          initializer=tf.glorot_uniform_initializer())
+                new_weights = tf.stop_gradient(weights) + tf.reshape(tf.matmul(
+                    tf.stop_gradient(self.transforms[i][0]), self.subspace), weights.shape)
+
+                biases = tf.get_variable(f'b_{i}', shape=(w,), trainable=False,
+                                         initializer=tf.zeros_initializer())
+                new_biases = tf.stop_gradient(biases) + tf.reshape(tf.matmul(
+                    tf.stop_gradient(self.transforms[i][1]), self.subspace), biases.shape)
+
+                out = tf.matmul(out, new_weights) + new_biases
 
                 if i < self.n_layers - 1:
                     out = tf.nn.relu(out)
 
-            preds = tf.nn.softmax(out)
+            logits = out
+            preds = tf.nn.softmax(logits)
+            pred_labels = tf.cast(tf.argmax(preds, 1), tf.uint8)
 
-            loss = tf.losses.softmax_cross_entropy(label_ohe, preds)
-            accuracy = tf.reduce_sum(label_ohe * preds) / tf.cast(
-                tf.shape(label_ohe)[0], tf.float32)
+            loss = tf.losses.softmax_cross_entropy(label_ohe, logits)
+            # loss = tf.losses.mean_squared_error(label_ohe, preds)
+
+            accuracy = tf.reduce_sum(
+                tf.cast(tf.equal(pred_labels, label_ph), tf.float32)
+            ) / tf.cast(tf.shape(label_ph)[0], tf.float32)
 
         return loss, accuracy
 
@@ -70,20 +86,26 @@ class IntrinsicDimensionExperiment:
         """Matrix P in the paper of size (D, d)
         Columns of P are normalized to unit length.
         """
-        matrix = np.random.random((self.D, self.d)).astype(np.float32)
+        matrix = np.random.randn(self.D, self.d).astype(np.float32)
         for i in range(self.d):
             # each column is normalized to have unit 1.
-            matrix[:, i] /= np.sum(matrix[:, i])
+            matrix[:, i] /= np.linalg.norm(matrix[:, i])
 
         # split P according to num. params per layer.
         w_matrices = []
         b_matrices = []
         offset = 0
-        for h, w in self.shape_per_layer:
-            w_matrices.append(matrix[offset:offset + h * w])  # for weights
+        for i, (h, w) in enumerate(self.shape_per_layer):
+            w_matrix_values = matrix[offset:offset + h * w]
+            w_matrix = tf.Variable(w_matrix_values, dtype=tf.float32, name=f'w_matrix_{i}',
+                                   trainable=False)
+            w_matrices.append(w_matrix)  # for weights
             offset += h * w
 
-            b_matrices.append(matrix[offset:offset + w])  # for weights
+            b_matrix_values = matrix[offset:offset + w]
+            b_matrix = tf.Variable(b_matrix_values, dtype=tf.float32, name=f'b_matrix_{i}',
+                                   trainable=False)
+            b_matrices.append(b_matrix)  # for weights
             offset += w
 
         logging.info(f"shape of transform matrices for weights: {[m.shape for m in w_matrices]}")
@@ -99,21 +121,31 @@ class IntrinsicDimensionExperiment:
         return self.sess.run([self.loss, self.accuracy], feed_dict=feed_dict)
 
     def _get_train_op(self, lr):
-        return tf.train.AdamOptimizer(lr).minimize(self.loss, var_list=self.subspace)
+        optimizer = tf.train.AdamOptimizer(lr)
+        grads_tvars = optimizer.compute_gradients(self.loss, var_list=[self.subspace])
+
+        if self.clip_norm:
+            grads_tvars = [(tf.clip_by_norm(g, self.clip_norm), v) for g, v in grads_tvars]
+
+        train_op = optimizer.apply_gradients(grads_tvars)
+        return train_op, grads_tvars
 
     def train(self, n_epoches=10, lr=0.005):
-        train_op = self._get_train_op(lr)
+        train_op, grads_tvars = self._get_train_op(lr)
         self._initialize()
 
         step = 0
         eval_acc = 0.0
-        for epoch in range(n_epoches):
+        for epoch in range(1, n_epoches + 1):
             while True:
                 try:
                     _, loss = self.sess.run([train_op, self.loss])
                     step += 1
                     if step % 100 == 0:
                         logging.info(f"[step:{step}] loss={loss}")
+                        # for g, v in grads_tvars:
+                        #     print(v, self.sess.run(tf.norm(g)))
+
                 except tf.errors.OutOfRangeError:
                     eval_loss, eval_acc = self._get_eval_results()
                     logging.info(f"[epoch:{epoch}|step:{step}] eval_loss:{eval_loss} "
@@ -121,12 +153,13 @@ class IntrinsicDimensionExperiment:
                     self.sess.run(self.iterator.initializer)
                     break
 
-            lr *= 0.8
+            if epoch % 20 == 0:
+                lr *= 0.5
 
         return eval_acc
 
 
 if __name__ == '__main__':
-    d = 100
-    exp = IntrinsicDimensionExperiment(d, [512])
-    exp.train(lr=0.005)
+    d = 800
+    exp = IntrinsicDimensionExperiment(d, [128, 128])
+    exp.train(lr=0.001)
