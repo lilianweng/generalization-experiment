@@ -108,12 +108,12 @@ def report_performance(sess, n_units, old_n_units, max_epochs, loss_type, lr, ba
 @click.option('--old-n-units', default=None, type=int, help="")
 @click.option('--loss-type', default='mse', type=str, help="type of loss func.")
 @click.option('--max-epochs', default=500, type=int, help="num. training epochs.")
-@click.option('--n-train-samples', default=2500, type=int, help="num. training samples")
-def main(n_units=1, old_n_units=None, loss_type='mse', max_epochs=500, n_train_samples=2500):
+@click.option('--n-train-samples', default=4000, type=int, help="num. training samples")
+def main(n_units=1, old_n_units=None, loss_type='mse', max_epochs=500, n_train_samples=4000):
     assert old_n_units is None or old_n_units < n_units
     logging.info(f"n_units:{n_units} max_epochs:{max_epochs}")
     sess = make_session()
-    lr = 0.005
+    lr = 0.001
     batch_size = 128
 
     epoch, step, train_loss, train_acc, eval_loss, eval_acc = report_performance(

@@ -24,7 +24,7 @@ class NewRiskCurveExperiment:
         logging.info(f"critical_n_units: {critical_n_units}")
         self.n_units_to_test = sorted(set(
             list(range(critical_n_units - 7, critical_n_units + 4)) +
-            list(range(5, 105, 10))
+            list(range(5, 55, 5)) + list(range(50, 105, 10)) + [120, 150, 200]
         ))
         logging.info(f"n_units_to_test: {self.n_units_to_test}")
 
@@ -43,7 +43,7 @@ class NewRiskCurveExperiment:
                 '--loss-type', str(self.loss_type),
             ]
 
-            if old_n_units and total_params < self.n_train_sample * 10:
+            if old_n_units:  # and total_params < self.n_train_sample * 10:
                 args.extend(['--old-n-units', str(old_n_units)])
 
             proc = subprocess.run(
@@ -78,5 +78,5 @@ class NewRiskCurveExperiment:
 
 
 if __name__ == '__main__':
-    exp = NewRiskCurveExperiment(loss_type='mse', max_epochs=500, n_train_sample=2500)
+    exp = NewRiskCurveExperiment(loss_type='mse', max_epochs=500, n_train_sample=4000)
     exp.run()
