@@ -23,8 +23,8 @@ class NewRiskCurveExperiment:
         critical_n_units = int((n_train_sample * 10 - 10) / float(28 * 28 + 10))
         logging.info(f"critical_n_units: {critical_n_units}")
         self.n_units_to_test = sorted(set(
-            list(range(critical_n_units - 8, critical_n_units + 4)) +
-            list(range(5, 105, 5))
+            list(range(critical_n_units - 7, critical_n_units + 4)) +
+            list(range(5, 105, 10))
         ))
         logging.info(f"n_units_to_test: {self.n_units_to_test}")
 
@@ -78,5 +78,5 @@ class NewRiskCurveExperiment:
 
 
 if __name__ == '__main__':
-    exp = NewRiskCurveExperiment(loss_type='mse', max_epochs=1000, n_train_sample=2500)
+    exp = NewRiskCurveExperiment(loss_type='mse', max_epochs=500, n_train_sample=2500)
     exp.run()

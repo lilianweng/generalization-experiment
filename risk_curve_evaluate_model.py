@@ -78,7 +78,7 @@ def report_performance(sess, n_units, old_n_units, max_epochs, loss_type, lr, ba
     step = 0
     epoch = 0
     # for epoch in range(num_epoches):
-    while True:
+    for epoch in range(max_epochs):
         while True:
             try:
                 sess.run(train_op, feed_dict={lr_ph: lr})
@@ -87,20 +87,16 @@ def report_performance(sess, n_units, old_n_units, max_epochs, loss_type, lr, ba
                 sess.run(iterator.initializer)
                 break
 
-        epoch += 1
-        if epoch > max_epochs:
-            break
         if epoch % 50 == 0:
             lr *= 0.8
-            train_loss, train_acc = sess.run([loss, accuracy], feed_dict={
-                batch_input: x_train, batch_label: y_train, lr_ph: lr})
-            logging.info(f"epoch:{epoch} train_acc:{train_acc} lr:{lr}")
 
     # evaluate t the end
     eval_loss, eval_acc = sess.run(
-        [loss, accuracy],
-        feed_dict={batch_input: x_test, batch_label: y_test}
-    )
+        [loss, accuracy], feed_dict={batch_input: x_test, batch_label: y_test})
+
+    train_loss, train_acc = sess.run([loss, accuracy], feed_dict={
+        batch_input: x_train, batch_label: y_train, lr_ph: lr})
+
     # dump the parameters into files so that we can reuse the weights in the next round.
     dump_weights(sess, n_units)
 
@@ -111,9 +107,9 @@ def report_performance(sess, n_units, old_n_units, max_epochs, loss_type, lr, ba
 @click.option('--n-units', default=50, type=int, help="num. hidden units in the middle layer.")
 @click.option('--old-n-units', default=None, type=int, help="")
 @click.option('--loss-type', default='mse', type=str, help="type of loss func.")
-@click.option('--max-epochs', default=200, type=int, help="num. training epochs.")
-@click.option('--n-train-samples', default=4000, type=int, help="num. training samples")
-def main(n_units=1, old_n_units=None, loss_type='mse', max_epochs=100, n_train_samples=4000):
+@click.option('--max-epochs', default=500, type=int, help="num. training epochs.")
+@click.option('--n-train-samples', default=2500, type=int, help="num. training samples")
+def main(n_units=1, old_n_units=None, loss_type='mse', max_epochs=500, n_train_samples=2500):
     assert old_n_units is None or old_n_units < n_units
     logging.info(f"n_units:{n_units} max_epochs:{max_epochs}")
     sess = make_session()

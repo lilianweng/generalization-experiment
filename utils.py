@@ -139,7 +139,7 @@ def create_mnist_model(input_ph, label_ph, layer_sizes=[64], dropout_keep_prob=N
         if loss_type == 'cross_ent':
             loss = tf.losses.softmax_cross_entropy(label_ohe, logits)
         elif loss_type == 'mse':
-            loss = tf.losses.mean_squared_error(label_ohe, preds)
+            loss = tf.reduce_mean(tf.square(label_ohe - preds))
 
         accuracy = tf.reduce_sum(
             tf.cast(tf.equal(preds_label, label_ph), tf.float32)
