@@ -92,11 +92,11 @@ class LayerEqualityExperiment:
             self._assign_layer_values(l, real_values)
 
             result_dict = dict(
-                epoch=epoch,
-                layer=l,
-                base_accuracy=eval_accuracy,
-                init_accuracy=init_acc,
-                random_accuracy=rnd_acc,
+                epoch=int(epoch),
+                layer=int(l),
+                base_accuracy=float(eval_accuracy),
+                init_accuracy=float(init_acc),
+                random_accuracy=float(rnd_acc),
                 diff_2norm=float(np.mean([
                     np.linalg.norm(np.array(x).flatten() - np.array(y).flatten())
                     for x, y in zip(real_values, self._init_values_by_layer[l])
