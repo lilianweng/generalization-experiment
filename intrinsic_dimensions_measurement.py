@@ -19,7 +19,7 @@ class IntrinsicDimensionExperiment:
         self.clip_norm = clip_norm
 
         dataset, (_, _), (self.x_test, self.y_test) = prepare_mnist_dataset(
-            batch_size=128, train_sample_size=5000, test_sample_size=1000)
+            batch_size=128, train_sample_size=6000, test_sample_size=1000)
         self.iterator = dataset.make_initializable_iterator()
         self.batch_input, self.batch_label = self.iterator.get_next()
 

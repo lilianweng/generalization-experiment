@@ -22,14 +22,6 @@ def configure_logging(text_color='green'):
     logging.basicConfig(level=logging.INFO, format=f"[%(asctime)s] " + text)
 
 
-def tf_var_size(v):
-    return np.prod(v.get_shape().as_list())
-
-
-def tf_flat_vars(var_list):
-    return tf.concat(axis=0, values=[tf.reshape(v, [tf_var_size(v)]) for v in var_list])
-
-
 def dense_nn(inputs, layers_sizes, name="fc", reuse=False, output_fn=None,
              dropout_keep_prob=None, training=True):
     logging.info(f"Building mlp {name} | sizes: {[inputs.shape[0]] + layers_sizes}")

@@ -178,10 +178,10 @@ class LayerEqualityExperiment:
 
 
 if __name__ == '__main__':
-    exp1 = LayerEqualityExperiment(
-        [256, 256, 256], output_filename="data/layer_equality_256x3.json")
-    exp1.train(100, 0.0005)
-    exp1.plot()
+    # exp1 = LayerEqualityExperiment(
+    #     [256, 256, 256], output_filename="data/layer_equality_256x3.json")
+    # exp1.train(100, 0.0005)
+    # exp1.plot()
 
     exp2 = LayerEqualityExperiment(
         [128, 128, 128, 128], output_filename="data/layer_equality_128x4.json")
