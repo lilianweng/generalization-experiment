@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import json
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from utils import create_mnist_model, prepare_mnist_dataset, make_session, configure_logging
@@ -16,11 +17,12 @@ DEFAULT_OUTPUT_FILENAME = "data/layer_equality_results.json"
 class LayerEqualityExperiment:
     default_output_filename = "data/layer_equality_results.json"
 
-    def __init__(self, layer_sizes, output_filename=DEFAULT_OUTPUT_FILENAME):
+    def __init__(self, layer_sizes: list, output_filename: str = DEFAULT_OUTPUT_FILENAME):
         self.output_filename = output_filename
         self.sess = make_session()
 
-        dataset, (_, _), (self.x_test, self.y_test) = prepare_mnist_dataset(ratio=0.1)
+        dataset, (_, _), (self.x_test, self.y_test) = prepare_mnist_dataset(
+            train_sample_size=6000, test_sample_size=1000)
         self.iterator = dataset.make_initializable_iterator()
         self.batch_input, self.batch_label = self.iterator.get_next()
 
@@ -95,10 +97,10 @@ class LayerEqualityExperiment:
                 base_accuracy=eval_accuracy,
                 init_accuracy=init_acc,
                 random_accuracy=rnd_acc,
-                diff_2norm=np.mean([
+                diff_2norm=float(np.mean([
                     np.linalg.norm(np.array(x).flatten() - np.array(y).flatten())
                     for x, y in zip(real_values, self._init_values_by_layer[l])
-                ])
+                ]))
             )
             logging.info(str(result_dict))
             results.append(result_dict)
@@ -129,6 +131,7 @@ class LayerEqualityExperiment:
             if epoch % 10 == 0:
                 results += self.measure_layer_robustness(eval_accuracy, epoch)
                 # save to disk in every loop
+                print(results)
                 with open(self.output_filename, 'w') as fout:
                     json.dump(results, fout)
 

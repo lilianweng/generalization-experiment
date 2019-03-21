@@ -3,6 +3,7 @@ import multiprocessing
 import subprocess
 import tensorflow as tf
 import numpy as np
+import time
 
 
 def colorize(text, color):
@@ -95,19 +96,27 @@ def make_session(num_cpus=None, use_gpu=True):
     return tf.Session(config=tf_config)
 
 
-def sample_dataset(x, y, n_samples):
+def sample_dataset(x, y, n_samples, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+    else:
+        np.random.seed(int(time.time()))
+
     indices = np.random.choice(range(x.shape[0]), size=n_samples, replace=False)
     x = x[indices]
     y = y[indices]
     return x, y
 
 
-def prepare_mnist_dataset(batch_size=64, ratio=1.0):
+def prepare_mnist_dataset(batch_size=64, train_sample_size=None, test_sample_size=None, seed=None):
     mnist = tf.keras.datasets.mnist
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    if ratio < 1.0:
-        x_train, y_train = sample_dataset(x_train, y_train, int(x_train.shape[0] * ratio))
-        x_test, y_test = sample_dataset(x_test, y_test, int(x_test.shape[0] * ratio))
+
+    if train_sample_size is not None:
+        x_train, y_train = sample_dataset(x_train, y_train, int(train_sample_size), seed)
+
+    if test_sample_size is not None:
+        x_test, y_test = sample_dataset(x_test, y_test, int(test_sample_size), seed)
 
     x_train, x_test = x_train / 255.0, x_test / 255.0
     logging.info(f"x_train.shape={x_train.shape} y_train={y_train.shape} "
@@ -120,7 +129,7 @@ def prepare_mnist_dataset(batch_size=64, ratio=1.0):
     return dataset, (x_train, y_train), (x_test, y_test)
 
 
-def create_mnist_model(input_ph, label_ph, layer_sizes=[64], dropout_keep_prob=0.9,
+def create_mnist_model(input_ph, label_ph, layer_sizes=[64], dropout_keep_prob=None,
                        name='mnist_dense_nn', loss_type='cross_ent'):
     assert list(input_ph.shape)[1:] == [28, 28]
     assert loss_type in ('cross_ent', 'mse')
@@ -132,16 +141,16 @@ def create_mnist_model(input_ph, label_ph, layer_sizes=[64], dropout_keep_prob=0
         # Toy model: 28x28 --> multiple fc layers --> ReLU --> fc 10 --> output logits
         logits = dense_nn(x, layer_sizes + [10], name="mlp", reuse=False,
                           dropout_keep_prob=dropout_keep_prob)
-        preds = tf.nn.softmax(logits)
-        pred_labels = tf.cast(tf.argmax(preds, 1), tf.uint8)
+        preds = tf.nn.softmax(logits)  # probability
+        preds_label = tf.cast(tf.argmax(preds, 1), tf.uint8)
 
-        if loss_type == 'x_ent':
+        if loss_type == 'cross_ent':
             loss = tf.losses.softmax_cross_entropy(label_ohe, logits)
-        else:
-            loss = tf.reduce_mean(tf.square(preds - label_ohe))
+        elif loss_type == 'mse':
+            loss = tf.losses.mean_squared_error(label_ohe, preds)
 
         accuracy = tf.reduce_sum(
-            tf.cast(tf.equal(pred_labels, label_ph), tf.float32)
+            tf.cast(tf.equal(preds_label, label_ph), tf.float32)
         ) / tf.cast(tf.shape(label_ph)[0], tf.float32)
 
     return loss, accuracy
