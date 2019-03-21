@@ -95,8 +95,6 @@ def report_performance(sess, n_units, old_n_units, max_epochs, loss_type, lr, ba
             train_loss, train_acc = sess.run([loss, accuracy], feed_dict={
                 batch_input: x_train, batch_label: y_train, lr_ph: lr})
             logging.info(f"epoch:{epoch} train_acc:{train_acc} lr:{lr}")
-            if train_acc > 0.998:
-                break
 
     # evaluate t the end
     eval_loss, eval_acc = sess.run(

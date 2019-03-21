@@ -31,6 +31,7 @@ class NewRiskCurveExperiment:
     def run(self):
         for i in range(len(self.n_units_to_test)):
             n_units = self.n_units_to_test[i]
+            total_params = (28 * 28 + 1) * n_units + (n_units + 1) * 10
             old_n_units = None if i == 0 else self.n_units_to_test[i - 1]
 
             # We are training MNIST models using subprocess because tensorflow graph cannot be
@@ -42,7 +43,7 @@ class NewRiskCurveExperiment:
                 '--loss-type', str(self.loss_type),
             ]
 
-            if old_n_units:
+            if old_n_units and total_params < self.n_train_sample * 10:
                 args.extend(['--old-n-units', str(old_n_units)])
 
             proc = subprocess.run(
@@ -57,7 +58,7 @@ class NewRiskCurveExperiment:
                 step=int(step),
                 n_units=n_units,
                 old_n_units=old_n_units,
-                total_params=(28 * 28 + 1) * n_units + (n_units + 1) * 10,
+                total_params=total_params,
                 train_loss=train_loss,
                 train_acc=train_acc,
                 eval_loss=eval_loss,
