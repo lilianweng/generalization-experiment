@@ -150,7 +150,7 @@ class LayerEqualityExperiment:
         markers = ['.', 'x', '^', 's']
 
         ax1.set_title("2-norm diff(init, current)")
-        for i in range(3):
+        for i in range(max_layers):
             ax1.plot(epoch[i], norm2[i], markers[i] + '-', label=f'Layer {i}')
         ax1.grid(ls='--', color='k', alpha=0.3)
         ax1.set_xlabel('num. training epoch')
@@ -158,7 +158,7 @@ class LayerEqualityExperiment:
         ax1.legend(frameon=False)
 
         ax2.set_title("Re-randomization robustness")
-        for i in range(3):
+        for i in range(max_layers):
             ax2.plot(epoch[i], random_acc[i], markers[i] + '-', label=f'Layer {i}')
         ax2.set_xlabel('num. training epoch')
         ax2.set_ylabel('test accuracy (%)')
@@ -166,7 +166,7 @@ class LayerEqualityExperiment:
         ax2.grid(ls='--', color='k', alpha=0.3)
 
         ax3.set_title("Re-initialization robustness")
-        for i in range(3):
+        for i in range(max_layers):
             ax3.plot(epoch[i], init_acc[i], markers[i] + '-', label=f'Layer {i}')
         ax3.grid(ls='--', color='k', alpha=0.3)
         ax3.set_xlabel('num. training epoch')
