@@ -21,8 +21,8 @@ class LayerEqualityExperiment:
         self.output_filename = output_filename
         self.sess = make_session()
 
-        dataset, (_, _), (self.x_test, self.y_test) = prepare_mnist_dataset(
-            train_sample_size=6000, test_sample_size=1000)
+        dataset, (_, _), (self.x_test,
+                          self.y_test) = prepare_mnist_dataset()  # train_sample_size=6000, test_sample_size=1000)
         self.iterator = dataset.make_initializable_iterator()
         self.batch_input, self.batch_label = self.iterator.get_next()
 
@@ -137,10 +137,9 @@ class LayerEqualityExperiment:
 
     def plot(self):
         data = json.load(open(self.output_filename))
-        max_layers = max(x['layer'] for x in data) + 1
-        logging.info(f"max_layers: {max_layers}")
-
+        max_layers = max(x['layer'] for x in data)
         epoch = [[x['epoch'] for x in data if x['layer'] == l] for l in range(max_layers)]
+
         init_acc = [[x['init_accuracy'] * 100.0 for x in data if x['layer'] == l] for l in
                     range(max_layers)]
         random_acc = [[x['random_accuracy'] * 100.0 for x in data if x['layer'] == l] for l in
@@ -148,26 +147,27 @@ class LayerEqualityExperiment:
         norm2 = [[x['diff_2norm'] for x in data if x['layer'] == l] for l in range(max_layers)]
 
         fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(14, 4))
+        markers = ['.', 'x', '^', 's']
 
         ax1.set_title("2-norm diff(init, current)")
-        for i in range(max_layers):
-            ax1.plot(epoch[i], norm2[i], '-', marker=i, label=f'Layer {i}')
+        for i in range(3):
+            ax1.plot(epoch[i], norm2[i], markers[i] + '-', label=f'Layer {i}')
         ax1.grid(ls='--', color='k', alpha=0.3)
         ax1.set_xlabel('num. training epoch')
         ax1.set_ylabel('2-norm distance to initial values')
         ax1.legend(frameon=False)
 
         ax2.set_title("Re-randomization robustness")
-        for i in range(max_layers):
-            ax2.plot(epoch[i], random_acc[i], marker=i, label=f'Layer {i}')
+        for i in range(3):
+            ax2.plot(epoch[i], random_acc[i], markers[i] + '-', label=f'Layer {i}')
         ax2.set_xlabel('num. training epoch')
         ax2.set_ylabel('test accuracy (%)')
         ax2.set_ylim(0.0, 100.0)
         ax2.grid(ls='--', color='k', alpha=0.3)
 
         ax3.set_title("Re-initialization robustness")
-        for i in range(max_layers):
-            ax3.plot(epoch[i], init_acc[i], marker=i, label=f'Layer {i}')
+        for i in range(3):
+            ax3.plot(epoch[i], init_acc[i], markers[i] + '-', label=f'Layer {i}')
         ax3.grid(ls='--', color='k', alpha=0.3)
         ax3.set_xlabel('num. training epoch')
         ax3.set_ylabel('test accuracy (%)')
@@ -178,12 +178,12 @@ class LayerEqualityExperiment:
 
 
 if __name__ == '__main__':
-    # exp1 = LayerEqualityExperiment(
-    #     [256, 256, 256], output_filename="data/layer_equality_256x3.json")
-    # exp1.train(100, 0.0005)
-    # exp1.plot()
+    exp1 = LayerEqualityExperiment(
+        [256, 256, 256], output_filename="data/layer_equality_256x3.json")
+    exp1.train(100, 0.0005)
+    exp1.plot()
 
-    exp2 = LayerEqualityExperiment(
-        [128, 128, 128, 128], output_filename="data/layer_equality_128x4.json")
-    exp2.train(100, 0.0005)
-    exp2.plot()
+    # exp2 = LayerEqualityExperiment(
+    #     [128, 128, 128, 128], output_filename="data/layer_equality_128x4.json")
+    # exp2.train(100, 0.0005)
+    # exp2.plot()
